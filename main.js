@@ -72,6 +72,8 @@ class Raymarcher {
 
 	start() {
 		this.#animation = true;
+		// this.#animationFrameRequest = requestAnimationFrame(this.animate);
+		this.animate();
 	}
 
 	stop() {
@@ -84,19 +86,38 @@ class Raymarcher {
 	}
 
 	animate() {
+		console.log("animate")
+		// if (this.#animation) {
+		// 	this.#animationFrameRequest = requestAnimationFrame(this.animate);
+		// }
+		// console.log(this)
 
-		// if(this.#animation)
-			
+		const update = _ => {
+			console.log("frame")
+            const now = performance.now();
+            const deltaTime = now - lastFrame;
+            lastFrame = now;
+
+            this.render(deltaTime);
+
+            if (this.#animation) {
+                this.#animationFrameRequest = requestAnimationFrame(update);
+            }
+        };
+
+        let lastFrame = performance.now();
+        update();
 	}
 
 	render(deltaTime) {
+		this.camera.update();
 		const projection = this.camera.projection;
 		const view = this.camera.view;
 		const mvp = mat4.multiply(mat4.create(), projection, view);
 		const inv_mvp = mat4.invert(mat4.create(), mvp);
 
 		// vec4.create()
-		console.log(inv_mvp)
+		// console.log(inv_mvp)
 
 		// let ndcXY = (uv - 0.5) * vec2(2, -2);
 		let near = vec4.transformMat4(vec4.create(),vec4.set(vec4.create(), 0, 0, 0, 1), inv_mvp);
@@ -105,9 +126,9 @@ class Raymarcher {
 		// var far = uniforms.inv_mvp * vec4f(ndcXY, 1, 1);
 		// near /= near.w;
 		// far /= far.w;
-		// near = vec4.scale(vec4.create(), near, 1/near.w);
-		// far = vec4.scale(vec4.create(), far, 1/far.w);
-		console.log(near, far)
+		near = vec4.scale(vec4.create(), near, 1/near[3]);
+		far = vec4.scale(vec4.create(), far, 1/far[3]);
+		// console.log(near, far)
 		const uniformArray = new Float32Array([
 			...mvp,
 			...inv_mvp,
@@ -294,4 +315,5 @@ class Raymarcher {
 
 const raymarcher = await Raymarcher.boot(canvas);
 
-raymarcher.render(0)
+// raymarcher.render(0)
+raymarcher.start()

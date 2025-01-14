@@ -24,5 +24,5 @@ fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
     near /= near.w;
     far /= far.w;
 	let ray = Ray(near.xyz, normalize(far.xyz - near.xyz));
-	textureStore(framebuffer, invocation_id.xy, vec4(abs(ray.dir), 1));
+	textureStore(framebuffer, invocation_id.xy, vec4(ray.dir, 1));
 }
