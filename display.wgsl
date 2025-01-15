@@ -10,7 +10,11 @@ override WORKGROUP_SIZE_Y : u32;
 
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
 fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
-  let color = textureLoad(input, invocation_id.xy, 0).rgb;
-  textureStore(output, invocation_id.xy, vec4f(color, 1));
+	let texDims = textureDimensions(input).xy;
+	if(invocation_id.x > texDims.x || invocation_id.y > texDims.y) {
+		return;
+	}
+  	let color = textureLoad(input, invocation_id.xy, 0).rgb;
+  	textureStore(output, invocation_id.xy, vec4f(color, 1));
 }
 

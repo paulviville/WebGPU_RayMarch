@@ -34,9 +34,9 @@ export class OrbitController {
         this.#node = node;
         this.#domElement = domElement;
 
-        this.#pitch = 0;
+        this.#pitch = -0.35;
         this.#yaw = 0;
-        this.#distance = 2;
+        this.#distance = 4;
 
         this.#moveSensitivity = moveSensitivity;
         this.#zoomSensitivity = zoomSensitivity;

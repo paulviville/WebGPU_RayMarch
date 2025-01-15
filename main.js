@@ -1,11 +1,14 @@
 import { OrbitCamera } from '../../../common/framework/util/orbit-camera.js';
 import { Loader } from '../../../common/framework/util/loader.js';
 import { mat4, vec4 } from '../../../lib/gl-matrix-module.js';
+import Stats from './stats.module.js';
 
 // import raymarcherCode from './raymarcher.wgsl';
 
 const canvas = document.getElementById('webGpuCanvas');
 
+const stats = new Stats()
+document.body.appendChild( stats.dom );
 
 
 class Raymarcher {
@@ -93,7 +96,8 @@ class Raymarcher {
 		// console.log(this)
 
 		const update = _ => {
-			console.log("frame")
+  			stats.update()
+//   console.log("frame")
             const now = performance.now();
             const deltaTime = now - lastFrame;
             lastFrame = now;
@@ -102,7 +106,8 @@ class Raymarcher {
 
             if (this.#animation) {
                 this.#animationFrameRequest = requestAnimationFrame(update);
-            }
+				// update();
+			}
         };
 
         let lastFrame = performance.now();
