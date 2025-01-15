@@ -339,6 +339,7 @@ const MIN_DIST: f32 = 1.0;
 const MAX_DIST: f32 = 20.0;
 
 const MAX_STEPS: u32 = 70;
+const MAX_STEPS_2ND: u32 = 16;
 const epsilon: f32 = 1e-5;
 
 const V3zero: vec3f = vec3f(0.0);
@@ -453,7 +454,7 @@ fn calcSoftShadow(ori: vec3f, dir: vec3f, mint: f32, maxt: f32 ) -> f32 {
 
     var res = 1.0;
     var t = mint;
-    for(var i: u32 = 0; i<24 && res > 0.004 && t < tmax; i += 1)    {
+    for(var i: u32 = 0; i< MAX_STEPS_2ND && res > 0.004 && t < tmax; i += 1)    {
 		let h = map( ori + dir*t ).x;
         let s = clamp(8.0*h/t,0.0,1.0);
         res = min( res, s );
@@ -559,6 +560,19 @@ fn getRay(uv: vec2f) -> Ray {
 	return Ray(near.xyz, normalize(far.xyz - near.xyz));
 }
 
+const AA: u32 = 2;
+
+
+fn random(p: vec2f) -> f32 {
+    let k = vec2<f32>(127.1, 311.7);
+    return fract(sin(dot(p, k)) * 43758.5453123);
+}
+
+fn randomVec2(p: vec2f) -> vec2f {
+    let k = vec2<f32>(127.1, 311.7);
+    return fract(sin(dot(p, k)) * vec2f(43758.5453123, 37585.453123));
+}
+
 @compute @workgroup_size(WORKGROUP_SIZE_X, WORKGROUP_SIZE_Y)
 fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
 	let texDims = textureDimensions(framebuffer).xy;
@@ -567,17 +581,36 @@ fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
 	}
 
 	let resolution = vec2f(texDims);
+	let invResolution = vec2f(1.0) / resolution; 
 	let aspect_ratio = resolution.x / resolution.y;
 	let uv = vec2f(invocation_id.xy) / resolution;
 	
-	var ray = getRay(uv);
+	// let rand0 = 0.5 - random(vec2f(invocation_id.xy));
+	// let rand1 = 0.5 - random(2.0 * vec2f(invocation_id.xy));
+	var randVec = randomVec2(uv);
+	let flip = vec2f(1.0, -1.0);
 	
-	let px = vec2f(uv.x + 1.0 / resolution.x, uv.y);
-	let py = vec2f(uv.x, uv.y + 1.0 / resolution.y);
+	let px = vec2f(uv.x + invResolution.x, uv.y);
+	let py = vec2f(uv.x, uv.y + invResolution.y);
 	let rdx = getRay(px).dir;
 	let rdy = getRay(py).dir;
-
-	let col = pow(render(&ray, rdx, rdy), vec3(0.4545));
 	
-	textureStore(framebuffer, invocation_id.xy, vec4(col, 1));
+
+	var sumCol = vec3f();
+	for(var v: u32 = 0; v < AA; v += 1) {
+
+		// let rand1 = random(2.0 * uv + vec2f(f32(AA)));
+
+		var ray = getRay(uv + 0.5 * invResolution * randVec);
+		randVec = randVec.yx * flip;
+
+
+		var col = pow(render(&ray, rdx, rdy), vec3(0.4545));
+		sumCol += col;			
+	}
+	sumCol /= f32(AA);
+
+
+
+	textureStore(framebuffer, invocation_id.xy, vec4(sumCol, 1));
 }

@@ -1,6 +1,6 @@
-import { OrbitCamera } from '../../../common/framework/util/orbit-camera.js';
-import { Loader } from '../../../common/framework/util/loader.js';
-import { mat4, vec4 } from '../../../lib/gl-matrix-module.js';
+import { OrbitCamera } from './common/framework/util/orbit-camera.js';
+import { Loader } from './common/framework/util/loader.js';
+import { mat4, vec4 } from './lib/gl-matrix-module.js';
 import Stats from './stats.module.js';
 
 // import raymarcherCode from './raymarcher.wgsl';
