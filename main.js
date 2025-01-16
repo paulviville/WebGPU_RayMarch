@@ -2,15 +2,14 @@ import { OrbitCamera } from './common/framework/util/orbit-camera.js';
 import { Loader } from './common/framework/util/loader.js';
 import { mat4, vec4 } from './lib/gl-matrix-module.js';
 import Stats from './stats.module.js';
-
-// import raymarcherCode from './raymarcher.wgsl';
+import { GUI } from './lil-gui.module.min.js'; 
 
 const canvas = document.getElementById('webGpuCanvas');
 
 const stats = new Stats()
 document.body.appendChild( stats.dom );
 
-
+// const gui = new GUI({});
 class Raymarcher {
 	#animation = false;
     #animationFrameRequest = null;
@@ -40,9 +39,25 @@ class Raymarcher {
 		});
 
 		this.camera = new OrbitCamera(this.canvas);
-		console.log(this.camera);
-
+		this.initGui();
     }
+
+	initGui() {
+		this.uniformParams = {
+			min_dist: 0.1,
+			max_dist: 20.0,
+			max_steps: 50,
+			max_steps_2nd: 16,
+		}
+
+		this.gui = new GUI();
+		this.guiUniforms = this.gui.addFolder("uniforms");
+		this.guiUniforms.add(this.uniformParams, 'min_dist').name("min dist").min(0.05).max(1.0).step(0.05);
+		this.guiUniforms.add(this.uniformParams, 'max_dist').name("max dist").min(1.05).max(40.0).step(0.05);
+		this.guiUniforms.add(this.uniformParams, 'max_steps').name("max steps").min(10).max(200).step(1);
+		this.guiUniforms.add(this.uniformParams, 'max_steps_2nd').name("max steps 2nd").min(5).max(100).step(1);
+
+	}
 
 	static async boot(canvas) {
 		const gpu = navigator.gpu;
@@ -75,7 +90,6 @@ class Raymarcher {
 
 	start() {
 		this.#animation = true;
-		// this.#animationFrameRequest = requestAnimationFrame(this.animate);
 		this.animate();
 	}
 
@@ -89,15 +103,8 @@ class Raymarcher {
 	}
 
 	animate() {
-		console.log("animate")
-		// if (this.#animation) {
-		// 	this.#animationFrameRequest = requestAnimationFrame(this.animate);
-		// }
-		// console.log(this)
-
 		const update = _ => {
   			stats.update()
-//   console.log("frame")
             const now = performance.now();
             const deltaTime = now - lastFrame;
             lastFrame = now;
@@ -106,7 +113,6 @@ class Raymarcher {
 
             if (this.#animation) {
                 this.#animationFrameRequest = requestAnimationFrame(update);
-				// update();
 			}
         };
 
@@ -114,42 +120,91 @@ class Raymarcher {
         update();
 	}
 
-	render(deltaTime) {
+	async render(deltaTime) {
 		this.camera.update();
 		const projection = this.camera.projection;
 		const view = this.camera.view;
 		const mvp = mat4.multiply(mat4.create(), projection, view);
 		const inv_mvp = mat4.invert(mat4.create(), mvp);
 
-		// vec4.create()
-		// console.log(inv_mvp)
-
-		// let ndcXY = (uv - 0.5) * vec2(2, -2);
-		let near = vec4.transformMat4(vec4.create(),vec4.set(vec4.create(), 0, 0, 0, 1), inv_mvp);
-		let far = vec4.transformMat4(vec4.create(),vec4.set(vec4.create(), 0, 0, 1, 1), inv_mvp);
-		// var near = uniforms.inv_mvp * vec4f(ndcXY, 0.0, 1);
-		// var far = uniforms.inv_mvp * vec4f(ndcXY, 1, 1);
-		// near /= near.w;
-		// far /= far.w;
-		near = vec4.scale(vec4.create(), near, 1/near[3]);
-		far = vec4.scale(vec4.create(), far, 1/far[3]);
-		// console.log(near, far)
-		const uniformArray = new Float32Array([
+		const uniformF32Array = new Float32Array([
 			...mvp,
 			...inv_mvp,
+			this.uniformParams.min_dist,
+			this.uniformParams.max_dist,
+			0.0, 0.0,
 		]);
+
+		const uniformU32Array = new Uint32Array([
+			this.uniformParams.max_steps,
+			this.uniformParams.max_steps_2nd,
+			0.0,
+			0.0,
+		])
+
+
+		// const buffer = new ArrayBuffer(160);
+		// const floatView = new Float32Array(buffer);
+		// const uintView = new Uint32Array(buffer);
+		// floatView.set(mvp, 0);
+		// floatView.set(inv_mvp, 16);
+		// floatView[32] = this.uniformParams.min_dist;
+		// floatView[33] = this.uniformParams.max_dist;
+		// uintView[36] = this.uniformParams.max_steps;
+		// uintView[37] = this.uniformParams.max_steps_2nd;
+		// console.log(floatView, uintView)
+
+		// this.device.queue.writeBuffer(
+		// 	this.uniformBuffer,
+		// 	0,
+		// 	buffer,
+		// );
 		this.device.queue.writeBuffer(
 			this.uniformBuffer,
 			0,
-			uniformArray,
+			uniformF32Array,
 		);
 
+		// const uint32View = new Uint32Array(this.uniformBuffer);
+		// uint32View.set(uniformU32Array, 34);
+		this.device.queue.writeBuffer(
+			this.uniformBuffer,
+			36*4,
+			uniformU32Array,
+		);
+
+
+		const readBuffer = this.device.createBuffer({
+			size: 160,
+			usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+		});
+
+
+		// console.log(uniformF32Array, uniformU32Array, this.uniformBuffer)
+
 		const commandEncoder = this.device.createCommandEncoder();
+
+		commandEncoder.copyBufferToBuffer(
+			this.uniformBuffer,
+			0,
+			readBuffer,
+			0,
+			160,
+		);
+
 
 		this.runCompute(commandEncoder);
 		this.runDisplay(commandEncoder);
 
+
 		this.device.queue.submit([commandEncoder.finish()]);
+
+
+		await readBuffer.mapAsync(GPUMapMode.READ);
+		const mappedArray = new Float32Array(readBuffer.getMappedRange());
+		// console.log(mappedArray)
+		readBuffer.unmap();
+
 	}
 
 	runCompute(commandEncoder) {
@@ -195,11 +250,10 @@ class Raymarcher {
 
 	async #initializeComputePipeline() {
 		this.uniformBuffer = this.device.createBuffer({
-            size: 128,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            size: 160,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
         });
 
-		console.log(this.context)
 		const bindGroupLayout = this.device.createBindGroupLayout({
 			label: "raymarcher compute bindgroup layout",
 			entries: [
@@ -243,10 +297,11 @@ class Raymarcher {
 			bindGroupLayouts: [bindGroupLayout],
 		});
 
-		const raymarcherCode = await new Loader().loadText('raymarcher.wgsl') 
+		const primitivesCode = await new Loader().loadText('primitives.wgsl'); 
+		const raymarcherCode = await new Loader().loadText('raymarcher.wgsl'); 
 		const raymarcherShaderModule = this.device.createShaderModule({
 				label: "raymarcher shader module",
-				code: raymarcherCode,
+				code: primitivesCode + raymarcherCode,
 		});
 
 		this.workgroup_size_x = 16;
