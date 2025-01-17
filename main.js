@@ -1,8 +1,9 @@
-import { OrbitCamera } from './common/framework/util/orbit-camera.js';
-import { Loader } from './common/framework/util/loader.js';
-import { mat4, vec4 } from './lib/gl-matrix-module.js';
-import Stats from './stats.module.js';
-import { GUI } from './lil-gui.module.min.js'; 
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+import { Loader } from './loader.js';
+import Stats from 'three/addons/libs/stats.module.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js'; 
 
 const canvas = document.getElementById('webGpuCanvas');
 
@@ -38,7 +39,11 @@ class Raymarcher {
 				GPUTextureUsage.TEXTURE_BINDING, 
 		});
 
-		this.camera = new OrbitCamera(this.canvas);
+		this.camera = new THREE.PerspectiveCamera( 50, canvas.width / canvas.height, 0.01, 50 );
+		this.camera.position.set( 2, 2, 6 );
+		this.controler = new OrbitControls(this.camera, canvas);
+		
+
 		this.initGui();
     }
 
@@ -121,15 +126,15 @@ class Raymarcher {
 	}
 
 	async render(deltaTime) {
-		this.camera.update();
-		const projection = this.camera.projection;
-		const view = this.camera.view;
-		const mvp = mat4.multiply(mat4.create(), projection, view);
-		const inv_mvp = mat4.invert(mat4.create(), mvp);
+		this.camera.updateMatrixWorld();
+
+		const mvp = this.camera.projectionMatrix.clone().multiply(this.camera.matrixWorldInverse);
+		const MVP = new Float32Array(mvp.toArray());
+		const INV_MVP = new Float32Array(mvp.invert().toArray());
 
 		const uniformF32Array = new Float32Array([
-			...mvp,
-			...inv_mvp,
+			...MVP,
+			...INV_MVP,
 			this.uniformParams.min_dist,
 			this.uniformParams.max_dist,
 			0.0, 0.0,

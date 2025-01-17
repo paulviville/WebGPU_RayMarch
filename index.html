@@ -5,6 +5,14 @@
     <title>WebGPU_RayMarch</title>
 </head>
 <body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./three.module.js",
+                "three/addons/": "./jsm/"
+            }
+        }
+    </script>
     <canvas id="webGpuCanvas" width="900" height="650" tabindex='1'></canvas>
     <script type="module" src="main.js"></script>
 </body>
